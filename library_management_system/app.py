@@ -182,6 +182,106 @@ def _apply_app_styles() -> None:
             border-radius: 16px;
             background: #fff;
         }
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-librarian_panel) {
+            border-color: #d5e3d9;
+            background: linear-gradient(155deg, #ffffff 0%, #f2f7f1 100%);
+            box-shadow: 0 18px 42px rgba(32, 49, 43, 0.09);
+        }
+        .librarian-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin: 0.1rem 0 0.75rem;
+        }
+        .librarian-avatar {
+            display: grid;
+            width: 2.8rem;
+            height: 2.8rem;
+            flex: 0 0 auto;
+            place-items: center;
+            border: 1px solid #d4e6d9;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #e8f3e9, #d7e9dc);
+            font-size: 1.35rem;
+        }
+        .librarian-eyebrow {
+            color: #527463;
+            font-size: 0.67rem;
+            font-weight: 750;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+        .librarian-title {
+            color: var(--library-ink);
+            font-size: 1.25rem;
+            font-weight: 750;
+            letter-spacing: -0.035em;
+            line-height: 1.25;
+        }
+        .librarian-intro {
+            margin: 0 0 0.65rem;
+            color: #56665e;
+            font-size: 0.91rem;
+            line-height: 1.5;
+        }
+        .st-key-clear_librarian_chat button {
+            min-height: 2rem;
+            padding: 0.25rem 0.5rem;
+            border-color: #dce7de;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, 0.75);
+            color: #52665a;
+            font-size: 0.76rem;
+        }
+        .librarian-empty-state {
+            display: flex;
+            min-height: 190px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem 0.65rem;
+            text-align: center;
+        }
+        .librarian-sparkle {
+            display: grid;
+            width: 2.4rem;
+            height: 2.4rem;
+            margin-bottom: 0.65rem;
+            place-items: center;
+            border-radius: 50%;
+            background: #e6f1e7;
+            color: #367254;
+            font-size: 1.3rem;
+        }
+        .librarian-empty-title {
+            color: var(--library-ink);
+            font-size: 0.98rem;
+            font-weight: 700;
+        }
+        .librarian-suggestions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.35rem;
+        }
+        .librarian-suggestion {
+            padding: 0.28rem 0.48rem;
+            border-radius: 8px;
+            background: #fff;
+            color: #52645a;
+            font-size: 0.7rem;
+            box-shadow: 0 1px 3px rgba(32, 49, 43, 0.07);
+        }
+        [data-testid="stVerticalBlockBorderWrapper"]:has(.st-key-librarian_panel)
+        [data-testid="stChatMessage"] {
+            border: 1px solid #e5ece6;
+            border-radius: 13px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        [data-testid="stChatInput"] textarea {
+            min-height: 88px !important;
+            resize: vertical;
+        }
         [data-testid="stTextInput"] input,
         [data-testid="stTextArea"] textarea,
         [data-testid="stSelectbox"] [data-baseweb="select"] > div {

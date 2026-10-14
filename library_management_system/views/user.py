@@ -14,7 +14,6 @@ SessionFactory = sessionmaker[Session]
 
 def render_user_view(sessions: SessionFactory, user_id: str) -> None:
     st.title("Find your next read")
-    st.caption("Explore the collection, or ask your AI librarian for a suggestion.")
     search_column, filter_column = st.columns([3, 1], gap="large")
     with search_column:
         search_text = st.text_input(
@@ -45,17 +44,20 @@ def render_user_view(sessions: SessionFactory, user_id: str) -> None:
         st.error(f"Could not load books ({type(error).__name__}). Try again.")
         return
 
-    if not books:
-        st.info("No books match those filters. Try another search.")
-    else:
-        st.caption(f"{len(books)} titles")
-        for index in range(0, len(books), 2):
-            columns = st.columns(2, gap="large")
-            for column, book in zip(columns, books[index : index + 2]):
-                with column:
-                    _render_book_card(sessions, book, user_id)
+    st.caption(f"{len(books)} titles")
+    catalog_column, assistant_column = st.columns([1.8, 1], gap="large")
+    with catalog_column:
+        if not books:
+            st.info("No books match those filters. Try another search.")
+        else:
+            for index in range(0, len(books), 2):
+                columns = st.columns(2, gap="small")
+                for column, book in zip(columns, books[index : index + 2]):
+                    with column:
+                        _render_book_card(sessions, book, user_id)
 
-    _render_assistant_chat(sessions, user_id)
+    with assistant_column:
+        _render_assistant_chat(sessions, user_id)
 
 
 def _render_book_card(
@@ -101,61 +103,111 @@ def _render_availability_badge(availability: BookAvailability) -> None:
 
 
 def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
-    st.divider()
-    st.subheader("Your AI librarian")
-    st.caption(
-        "Ask about the collection, get synopsis-based recommendations, "
-        "or ask to check out or return one of your books."
-    )
-    if st.button("Clear conversation", key="clear_librarian_chat"):
-        st.session_state["librarian_chat"] = []
-        st.rerun()
-
-    messages: list[dict[str, str]] = st.session_state.setdefault("librarian_chat", [])
-    for message in messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input(
-        "Ask about books, recommendations, checkouts, or returns"
-    ):
-        history: list[BaseMessage] = [
-            (
-                HumanMessage(content=message["content"])
-                if message["role"] == "user"
-                else AIMessage(content=message["content"])
+    with st.container(border=True, key="librarian_panel"):
+        header_column, clear_column = st.columns(
+            [4, 1],
+            vertical_alignment="center",
+            gap="small",
+        )
+        with header_column:
+            st.markdown(
+                """
+                <div class="librarian-heading">
+                    <div class="librarian-avatar">📚</div>
+                    <div>
+                        <div class="librarian-eyebrow">Your reading companion</div>
+                        <div class="librarian-title">AI librarian</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            for message in messages
-        ]
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        with st.chat_message("assistant"):
-            try:
-                with st.spinner("Searching the library..."):
-                    response = run_agent(
-                        prompt,
-                        sessions=sessions,
-                        borrower_id=user_id,
-                        history=history,
+        with clear_column:
+            if st.button(
+                "Clear",
+                icon=":material/delete_outline:",
+                help="Clear conversation",
+                type="secondary",
+                key="clear_librarian_chat",
+            ):
+                st.session_state["librarian_chat"] = []
+                st.rerun()
+        st.markdown(
+            '<p class="librarian-intro">Tell me what you love to read or ask '
+            'me to help manage your borrowed books. Start with a genre, a '
+            'topic, or a book you already love.</p>',
+            unsafe_allow_html=True,
+        )
+
+        messages: list[dict[str, str]] = st.session_state.setdefault(
+            "librarian_chat", []
+        )
+        with st.container(height=320, border=False):
+            if not messages:
+                st.markdown(
+                    """
+                    <div class="librarian-empty-state">
+                        <div class="librarian-sparkle">✦</div>
+                        <div class="librarian-empty-title">
+                            What are you in the mood for?
+                        </div>
+                        <div class="librarian-suggestions">
+                            <span class="librarian-suggestion">
+                                A cozy mystery
+                            </span>
+                            <span class="librarian-suggestion">
+                                Books about space
+                            </span>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            for message in messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+
+            if prompt := st.chat_input(
+                "Ask about books or recommendations"
+            ):
+                history: list[BaseMessage] = [
+                    (
+                        HumanMessage(content=message["content"])
+                        if message["role"] == "user"
+                        else AIMessage(content=message["content"])
                     )
-            except OpenAIError as error:
-                st.error(
-                    f"The assistant request failed ({type(error).__name__}). "
-                    "Check OPENAI_API_KEY and try again."
-                )
-            except (RuntimeError, ValueError, SQLAlchemyError) as error:
-                st.error(
-                    f"The assistant could not complete the request "
-                    f"({type(error).__name__}). Please try again."
-                )
-            else:
-                st.markdown(response)
-                messages.extend(
-                    [
-                        {"role": "user", "content": prompt},
-                        {"role": "assistant", "content": response},
-                    ]
-                )
+                    for message in messages
+                ]
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                with st.chat_message("assistant"):
+                    try:
+                        with st.spinner("Searching the library..."):
+                            response = run_agent(
+                                prompt,
+                                sessions=sessions,
+                                borrower_id=user_id,
+                                history=history,
+                            )
+                    except OpenAIError as error:
+                        st.error(
+                            f"The assistant request failed "
+                            f"({type(error).__name__}). Check OPENAI_API_KEY "
+                            "and try again."
+                        )
+                    except (RuntimeError, ValueError, SQLAlchemyError) as error:
+                        st.error(
+                            f"The assistant could not complete the request "
+                            f"({type(error).__name__}). Please try again."
+                        )
+                    else:
+                        st.markdown(response)
+                        messages.extend(
+                            [
+                                {"role": "user", "content": prompt},
+                                {"role": "assistant", "content": response},
+                            ]
+                        )
 
 
 def _render_user_book_action(
