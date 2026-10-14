@@ -10,6 +10,7 @@ from library_management_system.dao import (
     initialize_database,
 )
 from library_management_system.services.auth import (
+    AuthenticatedUser,
     authenticated_user_from_claims,
 )
 from library_management_system.views import (
@@ -19,7 +20,6 @@ from library_management_system.views import (
 )
 from library_management_system.views.auth import (
     clear_auth_session,
-    render_account_sidebar,
 )
 
 SessionFactory = sessionmaker[Session]
@@ -41,15 +41,6 @@ def main() -> None:
         layout="wide",
     )
     _apply_app_styles()
-    st.markdown(
-        """
-        <div class="library-wordmark">
-            <span class="library-wordmark-icon">📚</span>
-            <span>The Reading Room</span>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
     try:
         provider_settings = st.secrets.get("auth", {}).get("auth0", {})
@@ -65,6 +56,7 @@ def main() -> None:
         st.stop()
 
     if not st.user.get("is_logged_in", False):
+        _render_app_header()
         render_sign_in()
         st.stop()
 
@@ -89,9 +81,7 @@ def main() -> None:
         render_sign_in()
         st.stop()
 
-    render_account_sidebar(user)
-    if st.sidebar.button("Sign out"):
-        clear_auth_session()
+    view = _render_app_header(user)
 
     try:
         sessions = get_session_factory()
@@ -102,14 +92,59 @@ def main() -> None:
         )
         st.stop()
 
-    view = "User"
-    if user.is_admin:
-        view = st.sidebar.radio("View", ("User", "Admin"))
-
     if view == "User":
         render_user_view(sessions, user.user_id)
     else:
         render_admin_view(sessions)
+
+
+def _render_app_header(user: AuthenticatedUser | None = None) -> str:
+    brand_column, account_column = st.columns([3, 2], vertical_alignment="center")
+    with brand_column:
+        st.markdown(
+            """
+            <div class="library-wordmark">
+                <span class="library-wordmark-icon">📚</span>
+                <span>The Reading Room</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    view = "User"
+    with account_column:
+        if user is None:
+            return view
+
+        if user.is_admin:
+            identity_column, view_column, sign_out_column = st.columns(
+                [1.5, 1.1, 0.8],
+                vertical_alignment="center",
+            )
+            with identity_column:
+                st.text(user.name or user.email or "Signed-in user")
+            with view_column:
+                selected_view = st.segmented_control(
+                    "View",
+                    ("User", "Admin"),
+                    default="User",
+                    label_visibility="collapsed",
+                    key="app_view",
+                )
+                view = selected_view or "User"
+        else:
+            identity_column, sign_out_column = st.columns(
+                [2, 0.8],
+                vertical_alignment="center",
+            )
+            with identity_column:
+                st.text(user.name or user.email or "Signed-in user")
+
+        with sign_out_column:
+            if st.button("Sign out", use_container_width=True):
+                clear_auth_session()
+
+    return view
 
 
 def _apply_app_styles() -> None:
@@ -139,6 +174,9 @@ def _apply_app_styles() -> None:
         }
         [data-testid="stHeader"] {
             background: transparent;
+        }
+        [data-testid="stAppDeployButton"] {
+            display: none;
         }
         h1, h2, h3 {
             color: var(--library-ink);

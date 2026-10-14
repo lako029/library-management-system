@@ -1,10 +1,15 @@
 import json
+from uuid import uuid4
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from library_management_system.agent.tools import create_library_tools
-from library_management_system.dao import Book, BookAvailability
+from library_management_system.dao import (
+    Book,
+    BookAvailability,
+    BookAvailabilityError,
+)
 
 
 class FakeEmbedder:
@@ -15,6 +20,7 @@ class FakeEmbedder:
 
 def test_search_tool_formats_catalog_results(monkeypatch) -> None:
     book = Book(
+        id=uuid4(),
         title="The Martian",
         author="Andy Weir",
         genre="Science fiction",
@@ -50,6 +56,7 @@ def test_search_tool_formats_catalog_results(monkeypatch) -> None:
 
 def test_recommendation_tool_uses_embedder_and_default_limit(monkeypatch) -> None:
     book = Book(
+        id=uuid4(),
         title="The Martian",
         author="Andy Weir",
         availability=BookAvailability.AVAILABLE,
@@ -105,3 +112,175 @@ def test_recommendation_tool_returns_empty_result_message(monkeypatch) -> None:
 
     assert result["results"] == []
     assert "No matching books" in result["message"]
+
+
+def test_patron_action_tools_are_only_available_with_borrower_identity() -> None:
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+
+    assert [tool.name for tool in create_library_tools(sessions)] == [
+        "search_books",
+        "recommend_books",
+    ]
+    assert [
+        tool.name
+        for tool in create_library_tools(sessions, borrower_id="auth0|patron")
+    ] == [
+        "search_books",
+        "recommend_books",
+        "check_out_book",
+        "check_in_book",
+    ]
+
+
+def test_check_out_tool_checks_out_exact_title_for_signed_in_patron(
+    monkeypatch,
+) -> None:
+    book = Book(
+        id=uuid4(),
+        title="The Martian",
+        author="Andy Weir",
+        availability=BookAvailability.AVAILABLE,
+    )
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.search",
+        lambda _self, query, *, limit: [book],
+    )
+
+    def check_out(_self, book_id, borrower_id):
+        assert book_id == book.id
+        assert borrower_id == "auth0|patron"
+        book.availability = BookAvailability.BORROWED
+        book.checked_out_by = borrower_id
+        return book
+
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.check_out",
+        check_out,
+    )
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+    tools = create_library_tools(sessions, borrower_id="auth0|patron")
+    check_out_tool = next(tool for tool in tools if tool.name == "check_out_book")
+
+    result = json.loads(
+        check_out_tool.invoke({"title": "The Martian", "author": "Andy Weir"})
+    )
+
+    assert result["success"] is True
+    assert result["book"]["availability"] == "borrowed"
+
+
+def test_check_in_tool_reports_wrong_borrower_without_claiming_success(
+    monkeypatch,
+) -> None:
+    book = Book(
+        id=uuid4(),
+        title="The Martian",
+        author="Andy Weir",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|different-patron",
+    )
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.search",
+        lambda _self, query, *, limit: [book],
+    )
+
+    def check_in(_self, book_id, borrower_id):
+        raise BookAvailabilityError(
+            "Only the user who checked out this book can check it in."
+        )
+
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.check_in",
+        check_in,
+    )
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+    tools = create_library_tools(sessions, borrower_id="auth0|patron")
+    check_in_tool = next(tool for tool in tools if tool.name == "check_in_book")
+
+    result = json.loads(check_in_tool.invoke({"title": "The Martian"}))
+
+    assert result["success"] is False
+    assert "Only the user" in result["message"]
+
+
+def test_check_in_tool_checks_in_book_for_its_borrower(monkeypatch) -> None:
+    book = Book(
+        id=uuid4(),
+        title="The Martian",
+        author="Andy Weir",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|patron",
+    )
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.search",
+        lambda _self, query, *, limit: [book],
+    )
+
+    def check_in(_self, book_id, borrower_id):
+        assert book_id == book.id
+        assert borrower_id == "auth0|patron"
+        book.availability = BookAvailability.AVAILABLE
+        book.checked_out_by = None
+        return book
+
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.check_in",
+        check_in,
+    )
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+    tools = create_library_tools(sessions, borrower_id="auth0|patron")
+    check_in_tool = next(tool for tool in tools if tool.name == "check_in_book")
+
+    result = json.loads(check_in_tool.invoke({"title": "The Martian"}))
+
+    assert result["success"] is True
+    assert result["book"]["availability"] == "available"
+
+
+def test_action_tool_requires_a_unique_exact_title_match(monkeypatch) -> None:
+    books = [
+        Book(
+            id=uuid4(),
+            title="Dune",
+            author="Frank Herbert",
+            publication_year=1965,
+            availability=BookAvailability.AVAILABLE,
+        ),
+        Book(
+            id=uuid4(),
+            title="Dune",
+            author="Brian Herbert",
+            publication_year=2009,
+            availability=BookAvailability.AVAILABLE,
+        ),
+    ]
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.search",
+        lambda _self, query, *, limit: books,
+    )
+
+    def check_out(_self, book_id, borrower_id):
+        book = next(book for book in books if book.id == book_id)
+        book.availability = BookAvailability.BORROWED
+        book.checked_out_by = borrower_id
+        return book
+
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.check_out",
+        check_out,
+    )
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+    tools = create_library_tools(sessions, borrower_id="auth0|patron")
+    check_out_tool = next(tool for tool in tools if tool.name == "check_out_book")
+
+    result = json.loads(check_out_tool.invoke({"title": "Dune"}))
+    resolved = json.loads(
+        check_out_tool.invoke(
+            {"title": "Dune", "author": "Frank Herbert"}
+        )
+    )
+
+    assert result["success"] is False
+    assert len(result["matches"]) == 2
+    assert resolved["success"] is True
+    assert resolved["book"]["author"] == "Frank Herbert"

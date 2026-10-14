@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from library_management_system.dao import (
     Book,
     BookAvailability,
+    BookAvailabilityError,
     BookDAO,
     create_database_engine,
     create_session_factory,
@@ -26,8 +27,9 @@ def create_library_tools(
     sessions: sessionmaker[Session] | None = None,
     *,
     embedder: QueryEmbedder | None = None,
+    borrower_id: str | None = None,
 ) -> list[BaseTool]:
-    """Create read-only book search and synopsis-recommendation tools."""
+    """Create catalog tools, adding borrower-scoped actions when authenticated."""
     if sessions is None:
         engine = create_database_engine()
         sessions = create_session_factory(engine)
@@ -96,7 +98,153 @@ def create_library_tools(
             )
         return _format_books(books)
 
-    return [search_books, recommend_books]
+    tools = [search_books, recommend_books]
+    if borrower_id is not None:
+        @tool
+        def check_out_book(
+            title: str,
+            author: str = "",
+            publication_year: int | None = None,
+        ) -> str:
+            """Check out an available book for the currently signed-in patron.
+
+            Use the exact catalog title. Provide the author when needed to
+            distinguish books with the same title, and the year when needed
+            to distinguish editions.
+            """
+            return _change_book_status(
+                sessions,
+                title=title,
+                author=author,
+                publication_year=publication_year,
+                borrower_id=borrower_id,
+                check_out=True,
+            )
+
+        @tool
+        def check_in_book(
+            title: str,
+            author: str = "",
+            publication_year: int | None = None,
+        ) -> str:
+            """Check in a book currently borrowed by the signed-in patron.
+
+            Use the exact catalog title. Provide the author when needed to
+            distinguish books with the same title, and the year when needed
+            to distinguish editions. Only the patron who checked out a book
+            can check it in.
+            """
+            return _change_book_status(
+                sessions,
+                title=title,
+                author=author,
+                publication_year=publication_year,
+                borrower_id=borrower_id,
+                check_out=False,
+            )
+
+        tools.extend([check_out_book, check_in_book])
+    return tools
+
+
+def _change_book_status(
+    sessions: sessionmaker[Session],
+    *,
+    title: str,
+    author: str,
+    publication_year: int | None,
+    borrower_id: str,
+    check_out: bool,
+) -> str:
+    exact_title = title.strip()
+    exact_author = author.strip()
+    if not exact_title:
+        return json.dumps(
+            {"success": False, "message": "Provide the book's exact title."}
+        )
+
+    try:
+        with session_scope(sessions) as session:
+            dao = BookDAO(session)
+            matches = [
+                book
+                for book in dao.search(exact_title, limit=100)
+                if book.title.casefold() == exact_title.casefold()
+                and (
+                    not exact_author
+                    or book.author.casefold() == exact_author.casefold()
+                )
+                and (
+                    publication_year is None
+                    or book.publication_year == publication_year
+                )
+            ]
+            if not matches:
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": (
+                            f"No exact catalog match for “{exact_title}”"
+                            + (
+                                f" by {exact_author}"
+                                if exact_author
+                                else ""
+                            )
+                            + "."
+                        ),
+                    }
+                )
+            if len(matches) > 1:
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": (
+                            "More than one book matches. Ask the patron to "
+                            "specify the author or publication year."
+                        ),
+                        "matches": [
+                            {
+                                "title": book.title,
+                                "author": book.author,
+                                "publication_year": book.publication_year,
+                            }
+                            for book in matches
+                        ],
+                    }
+                )
+
+            book = matches[0]
+            updated = (
+                dao.check_out(book.id, borrower_id)
+                if check_out
+                else dao.check_in(book.id, borrower_id)
+            )
+            if updated is None:
+                return json.dumps(
+                    {
+                        "success": False,
+                        "message": "That book is no longer in the catalog.",
+                    }
+                )
+            result_book = {
+                "title": updated.title,
+                "author": updated.author,
+                "availability": updated.availability.value,
+            }
+    except BookAvailabilityError as error:
+        return json.dumps({"success": False, "message": str(error)})
+
+    action = "out" if check_out else "in"
+    return json.dumps(
+        {
+            "success": True,
+            "message": (
+                f"Successfully checked {action} “{result_book['title']}” "
+                f"by {result_book['author']}."
+            ),
+            "book": result_book,
+        }
+    )
 
 
 def _format_books(books: Sequence[Book]) -> str:

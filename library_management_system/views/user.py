@@ -62,7 +62,7 @@ def render_user_view(sessions: SessionFactory, user_id: str) -> None:
                 with column:
                     _render_book_card(sessions, book, user_id)
 
-    _render_assistant_chat(sessions)
+    _render_assistant_chat(sessions, user_id)
 
 
 def _render_book_card(
@@ -103,12 +103,12 @@ def _render_availability_badge(availability: BookAvailability) -> None:
     )
 
 
-def _render_assistant_chat(sessions: SessionFactory) -> None:
+def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
     st.divider()
-    st.subheader("Ask the librarian")
+    st.subheader("Your AI librarian")
     st.caption(
-        "Search the catalog or get synopsis-based recommendations. "
-        "Assistant requests require OPENAI_API_KEY."
+        "Ask about the collection, get synopsis-based recommendations, "
+        "or ask to check out or return one of your books."
     )
     if st.button("Clear conversation", key="clear_librarian_chat"):
         st.session_state["librarian_chat"] = []
@@ -121,7 +121,9 @@ def _render_assistant_chat(sessions: SessionFactory) -> None:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask about books or describe what you enjoy"):
+    if prompt := st.chat_input(
+        "Ask about books, recommendations, checkouts, or returns"
+    ):
         history: list[BaseMessage] = [
             HumanMessage(content=message["content"])
             if message["role"] == "user"
@@ -136,6 +138,7 @@ def _render_assistant_chat(sessions: SessionFactory) -> None:
                     response = run_agent(
                         prompt,
                         sessions=sessions,
+                        borrower_id=user_id,
                         history=history,
                     )
             except OpenAIError as error:

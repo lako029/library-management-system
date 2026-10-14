@@ -69,10 +69,18 @@ back in.
 LangChain assistant using the system prompt in
 `library_management_system.agent.prompt`. By default it includes
 `search_books` and `recommend_books`; `create_library_agent(tools=[...])` can
-instead use custom tools. `run_agent(user_input)` runs a single request.
+instead use custom tools. When given the authenticated patron's ID, it also
+exposes `check_out_book` and `check_in_book`; without that ID, the assistant
+remains read-only. The action tools require an exact title match, allow author
+or publication year to disambiguate books, and use the same borrower-ownership
+checks as the catalog buttons. The assistant is instructed to perform an
+action only when the patron explicitly asks to borrow or return a book.
+`run_agent(user_input)` runs a single request.
+
 The User view includes an “Ask the librarian” chat with per-session
-conversation history, using the same database session factory as the catalog
-UI. Live chat and recommendations require a valid `OPENAI_API_KEY`.
+conversation history, using the same database session factory and authenticated
+patron identity as the catalog UI. Live chat, recommendations, and assistant
+checkout/check-in require a valid `OPENAI_API_KEY`.
 
 Synopsis recommendations use OpenAI's `text-embedding-3-small` model with
 1,536-dimensional embeddings and Euclidean distance through pgvector. Adding or

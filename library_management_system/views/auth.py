@@ -1,7 +1,5 @@
 import streamlit as st
 
-from library_management_system.services.auth import AuthenticatedUser
-
 
 def render_sign_in() -> None:
     _, welcome_column, _ = st.columns([1, 1.4, 1])
@@ -19,11 +17,6 @@ def render_sign_in() -> None:
                 use_container_width=True,
             ):
                 st.login("auth0")
-
-
-def render_account_sidebar(user: AuthenticatedUser) -> None:
-    identity = user.name or user.email or "Signed-in user"
-    st.sidebar.caption(f"Signed in as {identity}")
 
 
 def clear_auth_session() -> None:
