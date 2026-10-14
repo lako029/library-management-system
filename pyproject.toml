@@ -14,7 +14,7 @@ dependencies = [
     "psycopg[binary]>=3.3.6",
     "pydantic>=2.7,<3.0",
     "sqlalchemy>=2.0,<3.0",
-    "streamlit>=1.65.0",
+    "streamlit[auth]>=1.65.0",
 ]
 
 [dependency-groups]

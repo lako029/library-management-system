@@ -75,11 +75,72 @@ run the app in the local environment:
 APP_ENV=local uv run --env-file .env streamlit run library_management_system/app.py
 ```
 
-The sidebar switches between a catalog user view and an admin catalog
-management view. The role selector is for local development only; it is not
-authentication or an authorization boundary. The app initializes pgvector and
-creates missing tables on startup for convenience; use migrations for ongoing
-schema changes.
+Signed-in users can browse the catalog and use the librarian assistant. The
+Admin view is available only to accounts assigned the configured Auth0 role. The
+app initializes pgvector and creates missing tables on startup for convenience
+in local development; use migrations for ongoing schema changes.
+
+## Authentication
+
+The app uses Auth0 Universal Login for hosted email/password and Google
+authentication. Create an Auth0 **Regular Web Application**; do not use a
+single-page application, because the server-side authorization-code exchange
+uses the application client secret.
+
+Configure the Auth0 application:
+
+1. Enable a database connection with sign-ups enabled and enable it for this
+   application.
+2. Enable the Google social connection for this application. Configure Google
+   credentials in Auth0 before using Google sign-in beyond development.
+3. Add `http://localhost:8501/oauth2callback` to **Allowed Callback URLs**.
+   Add `https://your-render-service.onrender.com/oauth2callback` there when
+   deploying.
+4. Add `http://localhost:8501/oauth2callback` to **Allowed Logout URLs** too.
+   Streamlit's `st.logout()` ends the Auth0 session and uses its configured
+   OIDC callback URI as the post-logout return URL. Add the Render
+   `https://your-render-service.onrender.com/oauth2callback` URI there when
+   deploying.
+5. In Auth0, create a **Post Login** Action, add it to the Login flow, and use
+   this code to include assigned Auth0 roles in the verified ID token:
+
+   ```javascript
+   exports.onExecutePostLogin = async (event, api) => {
+     const roles = event.authorization?.roles ?? [];
+     api.idToken.setCustomClaim(
+       "https://library-management-system/roles",
+       roles
+     );
+   };
+   ```
+
+Create the Streamlit secrets file from the example:
+
+```bash
+mkdir -p .streamlit
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+```
+
+Edit `.streamlit/secrets.toml` with your Auth0 domain, application client ID,
+and client secret. Replace `cookie_secret` with a long random value (for
+example, generate one with `openssl rand -hex 32`). The actual `secrets.toml`
+is git-ignored and must never be committed.
+
+The app uses Streamlit's built-in OIDC login (`st.login`) with Auth0. Streamlit
+handles the authorization redirect, callback, state/nonce checks, and signed
+browser session cookie. This avoids keeping OAuth state in transient
+`st.session_state`, which can be reset during the redirect. The app checks the
+Auth0 issuer, audience, and ID-token expiry before authorizing a user. Streamlit
+stores the identity in its signed cookie; the app does not put an ID or access
+token in the callback URL. Sign-out clears the local app session; Auth0 may keep
+its own browser session active.
+
+To enable the Admin view, create an Auth0 role named `Library Admin` and assign
+it only to authorized accounts. The Post Login Action adds assigned roles to
+the namespaced claim shown above. The app grants Admin access only when that
+verified claim contains the configured role. Set `AUTH0_ADMIN_ROLE` to change
+the role name, or `AUTH0_ROLES_CLAIM` to change the namespaced claim key.
+Regular sign-ups do not receive the Admin role automatically.
 
 ## Environments
 
