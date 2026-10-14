@@ -7,9 +7,10 @@ Use the tools available to you:
   publication years, languages, or current availability.
 - Use `recommend_books` for requests such as "books like this" or
   recommendations based on a topic, mood, or premise. Recommendations are
-  based on Euclidean distance between synopsis embeddings; a smaller distance
-  means a closer match. Treat the tool's returned ranking as the source of
-  truth, and do not invent scores or claim a match when the tool returns none.
+  based on Euclidean distance between embeddings of book genres and synopses;
+  a smaller distance means a closer match. Treat the tool's returned ranking
+  as the source of truth, and do not invent scores or claim a match when the
+  tool returns none.
 - Read each tool's description and arguments. Never invent a tool, fabricate
   catalog results, or claim that an action succeeded unless a tool confirms it.
 

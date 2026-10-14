@@ -204,5 +204,7 @@ def _render_user_book_action(
         except SQLAlchemyError as error:
             st.error(f"Could not update availability ({type(error).__name__}).")
             return
+        if check_in:
+            st.session_state.pop(f"user_rating_{book.id}", None)
         st.toast(success_message)
         st.rerun()

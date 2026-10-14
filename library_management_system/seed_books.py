@@ -5,7 +5,10 @@ from library_management_system.dao import (Book, BookAvailability, BookDAO,
                                            create_session_factory,
                                            session_scope)
 from library_management_system.data_models import BookCreate
-from library_management_system.services import get_embeddings
+from library_management_system.services import (
+    book_embedding_text,
+    get_embeddings,
+)
 
 SEED_BOOKS = (
     {
@@ -230,8 +233,14 @@ def seed_books() -> int:
         if not new_books:
             return 0
 
+        embedding_texts = [
+            book_embedding_text(book.get("genre"), book.get("synopsis"))
+            for book in new_books
+        ]
+        if any(text is None for text in embedding_texts):
+            raise ValueError("Every seeded book needs a genre or synopsis.")
         embeddings = get_embeddings().embed_documents(
-            [book["synopsis"] for book in new_books]
+            [text for text in embedding_texts if text is not None]
         )
         if len(embeddings) != len(new_books):
             raise RuntimeError("Embedding service returned an unexpected result count.")

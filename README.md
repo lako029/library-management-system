@@ -5,7 +5,7 @@
 The initial SQLAlchemy model is `library_management_system.dao.Book`. It stores a book title and
 author, optional catalog metadata and synopsis, a single current availability
 state, the Auth0 user ID of the current borrower (when checked out), and an
-optional pgvector synopsis embedding for future recommendations. Borrower
+optional pgvector embedding of genre and synopsis for recommendations. Borrower
 identity is cleared when the book is checked in; checkout history is not
 retained.
 
@@ -45,7 +45,7 @@ For local development, call `initialize_database(engine)` once to enable
 pgvector and create missing tables. This is a bootstrap helper, not a schema
 migration strategy. `BookDAO` provides create/read/update/delete, catalog
 search, borrower-restricted check-in/check-out transitions, and
-synopsis-embedding recommendations ranked by Euclidean distance. DAO methods
+metadata-embedding recommendations ranked by Euclidean distance. DAO methods
 flush changes; `session_scope` commits successful transactions and rolls back
 failures. Availability transitions acquire a row lock until the transaction
 completes.
@@ -99,12 +99,23 @@ conversation history, using the same database session factory and authenticated
 patron identity as the catalog UI. Live chat, recommendations, and assistant
 checkout/check-in require a valid `OPENAI_API_KEY`.
 
-Synopsis recommendations use OpenAI's `text-embedding-3-small` model with
-1,536-dimensional embeddings and Euclidean distance through pgvector. Adding or
-changing a synopsis in the admin UI stores its embedding, and recommendations
-embed the reader's request at query time. These features require
+Book recommendations use OpenAI's `text-embedding-3-small` model with
+1,536-dimensional embeddings and Euclidean distance through pgvector. Each
+book vector is generated from its genre and synopsis; recommendations embed
+the reader's request at query time. Adding or changing either field in the
+admin UI refreshes its embedding. These features require
 `OPENAI_API_KEY`. Books created before embedding generation was added need their
-synopses re-saved or otherwise re-indexed to be included in recommendations.
+content re-indexed to use both genre and synopsis in recommendations. Run the
+reindex command against the intended database after setting `DATABASE_URL` and
+`OPENAI_API_KEY`:
+
+```bash
+uv run --env-file .env python -m library_management_system.reindex_embeddings
+```
+
+This batches existing books, replaces their old vectors, and clears vectors
+from books with neither a genre nor a synopsis. Re-running it makes additional
+OpenAI embedding API calls.
 
 ## Local Streamlit UI
 
@@ -208,7 +219,7 @@ uv run pytest
 The unit tests use mocks and in-memory SQLite where practical; they do not
 require Docker Postgres or OpenAI credentials.
 
-To add the sample catalog of 20 varied books and generate synopsis embeddings,
+To add the sample catalog of 20 varied books and generate genre-and-synopsis embeddings,
 run:
 
 ```bash

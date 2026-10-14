@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from library_management_system.dao import (Book, BookAvailability, BookDAO,
                                            session_scope)
 from library_management_system.data_models import BookCreate, BookUpdate
-from library_management_system.services.embeddings import embed_synopsis
+from library_management_system.services.embeddings import embed_book_content
 
 SessionFactory = sessionmaker[Session]
 
@@ -35,7 +35,10 @@ def _render_create_book(sessions: SessionFactory) -> None:
 
     try:
         payload = BookCreate(**values)
-        synopsis_embedding = embed_synopsis(payload.synopsis)
+        synopsis_embedding = embed_book_content(
+            payload.genre,
+            payload.synopsis,
+        )
         with session_scope(sessions) as session:
             BookDAO(session).create(
                 payload,
@@ -46,7 +49,7 @@ def _render_create_book(sessions: SessionFactory) -> None:
         return
     except (OpenAIError, RuntimeError, ValueError) as error:
         st.error(
-            f"Could not index the synopsis ({type(error).__name__}). "
+            f"Could not index the book content ({type(error).__name__}). "
             "Check OPENAI_API_KEY and try again."
         )
         return
@@ -110,10 +113,11 @@ def _save_book_update(
     try:
         payload = BookUpdate(**values)
         synopsis_embedding = (
-            embed_synopsis(payload.synopsis)
+            embed_book_content(payload.genre, payload.synopsis)
             if payload.synopsis != selected_book.synopsis
+            or payload.genre != selected_book.genre
             or (
-                payload.synopsis is not None
+                (payload.synopsis is not None or payload.genre is not None)
                 and selected_book.synopsis_embedding is None
             )
             else None
@@ -132,7 +136,7 @@ def _save_book_update(
         return
     except (OpenAIError, RuntimeError, ValueError) as error:
         st.error(
-            f"Could not index the synopsis ({type(error).__name__}). "
+            f"Could not index the book content ({type(error).__name__}). "
             "Check OPENAI_API_KEY and try again."
         )
         return

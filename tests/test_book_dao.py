@@ -80,6 +80,7 @@ def test_update_keeps_embedding_when_synopsis_is_unchanged() -> None:
         id=uuid4(),
         title="Dune",
         author="Frank Herbert",
+        genre="Science fiction",
         synopsis="Updated synopsis",
         synopsis_embedding=embedding,
     )
@@ -88,6 +89,25 @@ def test_update_keeps_embedding_when_synopsis_is_unchanged() -> None:
     BookDAO(session).update(book.id, _complete_update())
 
     assert book.synopsis_embedding == embedding
+
+
+def test_update_clears_embedding_when_genre_changes_without_new_embedding() -> None:
+    session = MagicMock()
+    book = Book(
+        id=uuid4(),
+        title="Dune",
+        author="Frank Herbert",
+        genre="Science fiction",
+        synopsis="Updated synopsis",
+        synopsis_embedding=[0.1] * 1536,
+    )
+    session.scalars.return_value.one_or_none.return_value = book
+    update = _complete_update()
+    update.genre = "Adventure"
+
+    BookDAO(session).update(book.id, update)
+
+    assert book.synopsis_embedding is None
 
 
 def test_update_returns_none_for_unknown_book() -> None:

@@ -62,11 +62,11 @@ def create_library_tools(
         limit: int = 3,
         available_only: bool = True,
     ) -> str:
-        """Recommend books with synopsis embeddings similar to a reader's request.
+        """Recommend books with genre-and-synopsis embeddings similar to a request.
 
-        Uses text-embedding-3-small and Euclidean distance over book synopsis
-        embeddings. A smaller distance means a closer match. Books need a synopsis
-        embedding to be considered.
+        Uses text-embedding-3-small and Euclidean distance over embeddings
+        generated from each book's genre and synopsis. A smaller distance means
+        a closer match. Books need a genre or synopsis to be considered.
 
         Args:
             description: A topic, premise, mood, or other recommendation request.
@@ -87,7 +87,8 @@ def create_library_tools(
             return json.dumps(
                 {
                     "message": (
-                        "No matching books with synopsis embeddings were found."
+                        "No matching books with genre or synopsis embeddings "
+                        "were found."
                     ),
                     "results": [],
                 }

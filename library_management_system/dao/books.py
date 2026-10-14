@@ -83,6 +83,7 @@ class BookDAO:
         if book is None:
             return None
         previous_synopsis = book.synopsis
+        previous_genre = book.genre
         if (
             data.availability is BookAvailability.BORROWED
             and book.availability is BookAvailability.AVAILABLE
@@ -96,7 +97,10 @@ class BookDAO:
             book.checked_out_by = None
         if synopsis_embedding is not None:
             book.synopsis_embedding = _validate_embedding(synopsis_embedding)
-        elif data.synopsis != previous_synopsis:
+        elif (
+            data.synopsis != previous_synopsis
+            or data.genre != previous_genre
+        ):
             book.synopsis_embedding = None
         self._session.flush()
         return book
