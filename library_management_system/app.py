@@ -1,26 +1,17 @@
 import streamlit as st
-from streamlit.errors import StreamlitSecretNotFoundError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from library_management_system.config import get_settings
-from library_management_system.dao import (
-    create_database_engine,
-    create_session_factory,
-    initialize_database,
-)
+from library_management_system.dao import (create_database_engine,
+                                           create_session_factory,
+                                           initialize_database)
 from library_management_system.services.auth import (
-    AuthenticatedUser,
-    authenticated_user_from_claims,
-)
-from library_management_system.views import (
-    render_admin_view,
-    render_sign_in,
-    render_user_view,
-)
-from library_management_system.views.auth import (
-    clear_auth_session,
-)
+    AuthenticatedUser, authenticated_user_from_claims)
+from library_management_system.views import (render_admin_view, render_sign_in,
+                                             render_user_view)
+from library_management_system.views.auth import clear_auth_session
 
 SessionFactory = sessionmaker[Session]
 
@@ -60,9 +51,7 @@ def main() -> None:
         render_sign_in()
         st.stop()
 
-    expected_issuer = metadata_url.removesuffix(
-        "/.well-known/openid-configuration"
-    )
+    expected_issuer = metadata_url.removesuffix("/.well-known/openid-configuration")
     if not expected_issuer.endswith("/"):
         expected_issuer += "/"
 
@@ -75,8 +64,7 @@ def main() -> None:
     except ValueError as error:
         clear_auth_session()
         st.error(
-            f"Your session could not be validated: {error}. "
-            "Please sign in again."
+            f"Your session could not be validated: {error}. " "Please sign in again."
         )
         render_sign_in()
         st.stop()

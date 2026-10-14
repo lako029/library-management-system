@@ -8,13 +8,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from library_management_system.agent.agent import run_agent
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookAvailabilityError,
-    BookDAO,
-    session_scope,
-)
+from library_management_system.dao import (Book, BookAvailability,
+                                           BookAvailabilityError, BookDAO,
+                                           session_scope)
 
 SessionFactory = sessionmaker[Session]
 
@@ -114,9 +110,7 @@ def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
         st.session_state["librarian_chat"] = []
         st.rerun()
 
-    messages: list[dict[str, str]] = st.session_state.setdefault(
-        "librarian_chat", []
-    )
+    messages: list[dict[str, str]] = st.session_state.setdefault("librarian_chat", [])
     for message in messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -125,9 +119,11 @@ def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
         "Ask about books, recommendations, checkouts, or returns"
     ):
         history: list[BaseMessage] = [
-            HumanMessage(content=message["content"])
-            if message["role"] == "user"
-            else AIMessage(content=message["content"])
+            (
+                HumanMessage(content=message["content"])
+                if message["role"] == "user"
+                else AIMessage(content=message["content"])
+            )
             for message in messages
         ]
         with st.chat_message("user"):

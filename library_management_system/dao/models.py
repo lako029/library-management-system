@@ -3,14 +3,9 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import (
-    DateTime,
-    Enum as SQLAlchemyEnum,
-    String,
-    Text,
-    Uuid,
-    func,
-)
+from sqlalchemy import DateTime
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import String, Text, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -26,7 +21,9 @@ class BookAvailability(str, Enum):
 class Book(Base):
     __tablename__ = "books"
 
-    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True), primary_key=True, default=uuid4
+    )
     title: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
     author: Mapped[str] = mapped_column(String(300), nullable=False, index=True)
     isbn: Mapped[str | None] = mapped_column(String(17), unique=True)

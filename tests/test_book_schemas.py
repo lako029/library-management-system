@@ -6,7 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from library_management_system.dao import BookAvailability
-from library_management_system.data_models import BookCreate, BookRead, BookUpdate
+from library_management_system.data_models import (BookCreate, BookRead,
+                                                   BookUpdate)
 
 
 def test_book_create_strips_required_text_and_applies_defaults() -> None:

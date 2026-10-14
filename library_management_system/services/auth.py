@@ -50,9 +50,7 @@ def authenticated_user_from_claims(
 
     roles_claim = os.getenv("AUTH0_ROLES_CLAIM", DEFAULT_ROLES_CLAIM)
     roles = claims.get(roles_claim, [])
-    if not isinstance(roles, list) or not all(
-        isinstance(role, str) for role in roles
-    ):
+    if not isinstance(roles, list) or not all(isinstance(role, str) for role in roles):
         raise ValueError("Auth0 returned invalid role claims.")
 
     email = claims.get("email", "")

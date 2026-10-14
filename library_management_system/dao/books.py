@@ -143,9 +143,7 @@ class BookDAO:
             .limit(limit)
         )
         if available_only:
-            statement = statement.where(
-                Book.availability == BookAvailability.AVAILABLE
-            )
+            statement = statement.where(Book.availability == BookAvailability.AVAILABLE)
         return list(self._session.scalars(statement).all())
 
     def _set_availability(
@@ -156,11 +154,7 @@ class BookDAO:
         target: BookAvailability,
         borrower_id: str,
     ) -> Book | None:
-        statement = (
-            select(Book)
-            .where(Book.id == book_id)
-            .with_for_update()
-        )
+        statement = select(Book).where(Book.id == book_id).with_for_update()
         book = self._session.scalars(statement).one_or_none()
         if book is None:
             return None
@@ -198,9 +192,7 @@ def _validate_embedding(embedding: Sequence[float]) -> list[float]:
     vector = [float(value) for value in embedding]
     dimensions = get_settings().synopsis_embedding_dimensions
     if len(vector) != dimensions:
-        raise ValueError(
-            f"embedding must contain {dimensions} values."
-        )
+        raise ValueError(f"embedding must contain {dimensions} values.")
     if not all(isfinite(value) for value in vector):
         raise ValueError("embedding values must all be finite.")
     return vector

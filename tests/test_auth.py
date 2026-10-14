@@ -1,10 +1,7 @@
 import pytest
 
 from library_management_system.services.auth import (
-    DEFAULT_ROLES_CLAIM,
-    AuthenticatedUser,
-    authenticated_user_from_claims,
-)
+    DEFAULT_ROLES_CLAIM, AuthenticatedUser, authenticated_user_from_claims)
 
 
 def test_admin_access_depends_on_verified_auth0_role(

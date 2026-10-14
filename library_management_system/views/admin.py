@@ -6,12 +6,8 @@ from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookDAO,
-    session_scope,
-)
+from library_management_system.dao import (Book, BookAvailability, BookDAO,
+                                           session_scope)
 from library_management_system.data_models import BookCreate, BookUpdate
 from library_management_system.services.embeddings import embed_synopsis
 
@@ -206,9 +202,11 @@ def _book_fields(prefix: str, book: Book | None) -> dict[str, Any]:
         availability = st.selectbox(
             "Availability",
             options=availability_options,
-            index=availability_options.index(book.availability)
-            if book
-            else availability_options.index(BookAvailability.AVAILABLE),
+            index=(
+                availability_options.index(book.availability)
+                if book
+                else availability_options.index(BookAvailability.AVAILABLE)
+            ),
             format_func=lambda status: status.value.title(),
             key=f"{prefix}_availability",
         )

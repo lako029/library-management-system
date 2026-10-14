@@ -5,15 +5,11 @@ from typing import Literal, Protocol
 from langchain_core.tools import BaseTool, tool
 from sqlalchemy.orm import Session, sessionmaker
 
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookAvailabilityError,
-    BookDAO,
-    create_database_engine,
-    create_session_factory,
-    session_scope,
-)
+from library_management_system.dao import (Book, BookAvailability,
+                                           BookAvailabilityError, BookDAO,
+                                           create_database_engine,
+                                           create_session_factory,
+                                           session_scope)
 from library_management_system.services.embeddings import get_embeddings
 
 AvailabilityFilter = Literal["all", "available", "borrowed"]
@@ -100,6 +96,7 @@ def create_library_tools(
 
     tools = [search_books, recommend_books]
     if borrower_id is not None:
+
         @tool
         def check_out_book(
             title: str,
@@ -185,11 +182,7 @@ def _change_book_status(
                         "success": False,
                         "message": (
                             f"No exact catalog match for “{exact_title}”"
-                            + (
-                                f" by {exact_author}"
-                                if exact_author
-                                else ""
-                            )
+                            + (f" by {exact_author}" if exact_author else "")
                             + "."
                         ),
                     }

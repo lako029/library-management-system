@@ -24,8 +24,7 @@ def embed_synopsis(synopsis: str | None) -> list[float] | None:
     embedding = get_embeddings().embed_query(synopsis.strip())
     if len(embedding) != dimensions:
         raise ValueError(
-            f"Expected {dimensions} embedding values, "
-            f"received {len(embedding)}."
+            f"Expected {dimensions} embedding values, " f"received {len(embedding)}."
         )
     if not all(isfinite(value) for value in embedding):
         raise ValueError("Synopsis embedding contains a non-finite value.")

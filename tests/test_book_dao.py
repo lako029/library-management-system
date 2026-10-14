@@ -4,12 +4,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.dialects import postgresql
 
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookAvailabilityError,
-    BookDAO,
-)
+from library_management_system.dao import (Book, BookAvailability,
+                                           BookAvailabilityError, BookDAO)
 from library_management_system.data_models import BookCreate, BookUpdate
 
 

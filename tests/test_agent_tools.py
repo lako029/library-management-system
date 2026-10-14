@@ -5,11 +5,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from library_management_system.agent.tools import create_library_tools
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookAvailabilityError,
-)
+from library_management_system.dao import (Book, BookAvailability,
+                                           BookAvailabilityError)
 
 
 class FakeEmbedder:
@@ -29,6 +26,7 @@ def test_search_tool_formats_catalog_results(monkeypatch) -> None:
         synopsis="An astronaut survives on Mars.",
         availability=BookAvailability.AVAILABLE,
     )
+
     def search_books(
         _self,
         query: str,
@@ -61,6 +59,7 @@ def test_recommendation_tool_uses_embedder_and_default_limit(monkeypatch) -> Non
         author="Andy Weir",
         availability=BookAvailability.AVAILABLE,
     )
+
     def recommend_books(
         _self,
         embedding: list[float],
@@ -122,8 +121,7 @@ def test_patron_action_tools_are_only_available_with_borrower_identity() -> None
         "recommend_books",
     ]
     assert [
-        tool.name
-        for tool in create_library_tools(sessions, borrower_id="auth0|patron")
+        tool.name for tool in create_library_tools(sessions, borrower_id="auth0|patron")
     ] == [
         "search_books",
         "recommend_books",
@@ -275,9 +273,7 @@ def test_action_tool_requires_a_unique_exact_title_match(monkeypatch) -> None:
 
     result = json.loads(check_out_tool.invoke({"title": "Dune"}))
     resolved = json.loads(
-        check_out_tool.invoke(
-            {"title": "Dune", "author": "Frank Herbert"}
-        )
+        check_out_tool.invoke({"title": "Dune", "author": "Frank Herbert"})
     )
 
     assert result["success"] is False

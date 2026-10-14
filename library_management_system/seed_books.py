@@ -1,13 +1,9 @@
 from sqlalchemy import select
 
-from library_management_system.dao import (
-    Book,
-    BookAvailability,
-    BookDAO,
-    create_database_engine,
-    create_session_factory,
-    session_scope,
-)
+from library_management_system.dao import (Book, BookAvailability, BookDAO,
+                                           create_database_engine,
+                                           create_session_factory,
+                                           session_scope)
 from library_management_system.data_models import BookCreate
 from library_management_system.services import get_embeddings
 
@@ -220,9 +216,7 @@ def seed_books() -> int:
     sessions = create_session_factory(engine)
     try:
         with session_scope(sessions) as session:
-            existing_books = session.execute(
-                select(Book.title, Book.author)
-            ).all()
+            existing_books = session.execute(select(Book.title, Book.author)).all()
             existing = {
                 (title.casefold(), author.casefold())
                 for title, author in existing_books
@@ -230,8 +224,7 @@ def seed_books() -> int:
             new_books = [
                 book
                 for book in SEED_BOOKS
-                if (book["title"].casefold(), book["author"].casefold())
-                not in existing
+                if (book["title"].casefold(), book["author"].casefold()) not in existing
             ]
 
         if not new_books:
