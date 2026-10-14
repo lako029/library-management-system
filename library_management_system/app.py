@@ -35,8 +35,21 @@ def get_session_factory() -> SessionFactory:
 
 def main() -> None:
     settings = get_settings()
-    st.set_page_config(page_title="Library", page_icon="📚", layout="wide")
-    st.title(settings.app_title)
+    st.set_page_config(
+        page_title=settings.app_title,
+        page_icon="📚",
+        layout="wide",
+    )
+    _apply_app_styles()
+    st.markdown(
+        """
+        <div class="library-wordmark">
+            <span class="library-wordmark-icon">📚</span>
+            <span>The Reading Room</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     try:
         provider_settings = st.secrets.get("auth", {}).get("auth0", {})
@@ -97,6 +110,112 @@ def main() -> None:
         render_user_view(sessions, user.user_id)
     else:
         render_admin_view(sessions)
+
+
+def _apply_app_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        :root {
+            --library-ink: #20312b;
+            --library-muted: #68766f;
+            --library-green: #28634f;
+            --library-paper: #f5f5f0;
+            --library-line: #e3e7e1;
+        }
+        [data-testid="stAppViewContainer"] {
+            background: var(--library-paper);
+        }
+        [data-testid="stMainBlockContainer"] {
+            max-width: 1220px;
+            padding-top: 2rem;
+            padding-bottom: 3rem;
+        }
+        section[data-testid="stSidebar"] {
+            width: 250px !important;
+            min-width: 250px !important;
+            background: #eef1eb;
+            border-right: 1px solid var(--library-line);
+        }
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
+        h1, h2, h3 {
+            color: var(--library-ink);
+            letter-spacing: -0.035em;
+        }
+        h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 720;
+        }
+        [data-testid="stCaptionContainer"] {
+            color: var(--library-muted);
+        }
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            border-color: var(--library-line);
+            border-radius: 16px;
+            background: #fff;
+        }
+        [data-testid="stTextInput"] input,
+        [data-testid="stTextArea"] textarea,
+        [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+            border-color: #dce3dc;
+            border-radius: 10px;
+            background: #fff;
+        }
+        button[kind="primary"] {
+            border-radius: 10px;
+            font-weight: 650;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            gap: 0.6rem;
+            border-bottom-color: var(--library-line);
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            color: var(--library-muted);
+            font-weight: 600;
+        }
+        [data-testid="stTabs"] [aria-selected="true"] {
+            color: var(--library-green);
+        }
+        .library-wordmark {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin: 0.15rem 0 1.65rem;
+            color: var(--library-ink);
+            font-size: 1rem;
+            font-weight: 750;
+            letter-spacing: -0.02em;
+        }
+        .library-wordmark-icon {
+            display: grid;
+            width: 2rem;
+            height: 2rem;
+            place-items: center;
+            border-radius: 10px;
+            background: #dce9df;
+            font-size: 1.1rem;
+        }
+        .availability-badge {
+            display: inline-block;
+            padding: 0.28rem 0.65rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 650;
+        }
+        .availability-available {
+            color: #236147;
+            background: #e6f2e9;
+        }
+        .availability-borrowed {
+            color: #875b20;
+            background: #f8efdc;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 if __name__ == "__main__":

@@ -19,7 +19,8 @@ SessionFactory = sessionmaker[Session]
 
 
 def render_admin_view(sessions: SessionFactory) -> None:
-    st.header("Admin — manage catalog")
+    st.title("Catalog management")
+    st.caption("Add titles, update book details, and keep availability current.")
     add_tab, edit_tab = st.tabs(("Add a book", "Edit or delete"))
 
     with add_tab:
@@ -29,6 +30,7 @@ def render_admin_view(sessions: SessionFactory) -> None:
 
 
 def _render_create_book(sessions: SessionFactory) -> None:
+    st.caption("Add a title to the collection. A synopsis helps power recommendations.")
     with st.form("create_book_form", clear_on_submit=True):
         values = _book_fields("create", None)
         submitted = st.form_submit_button("Add book", type="primary")
@@ -88,18 +90,20 @@ def _render_edit_books(sessions: SessionFactory) -> None:
     if save_submitted:
         _save_book_update(sessions, selected_book, values)
 
-    with st.form(f"delete_book_form_{selected_id}"):
-        confirm_delete = st.checkbox(
-            f"Confirm deletion of “{selected_book.title}”",
-            key=f"confirm_delete_{selected_id}",
-        )
-        delete_submitted = st.form_submit_button(
-            "Delete book",
-            type="secondary",
-            disabled=not confirm_delete,
-        )
-    if delete_submitted:
-        _delete_book(sessions, selected_book)
+    with st.expander("Delete this book"):
+        st.caption("Deleting a title removes it from the catalog permanently.")
+        with st.form(f"delete_book_form_{selected_id}"):
+            confirm_delete = st.checkbox(
+                f"Confirm deletion of “{selected_book.title}”",
+                key=f"confirm_delete_{selected_id}",
+            )
+            delete_submitted = st.form_submit_button(
+                "Delete book",
+                type="secondary",
+                disabled=not confirm_delete,
+            )
+        if delete_submitted:
+            _delete_book(sessions, selected_book)
 
 
 def _save_book_update(

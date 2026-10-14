@@ -20,38 +20,21 @@ SessionFactory = sessionmaker[Session]
 
 
 def render_user_view(sessions: SessionFactory, user_id: str) -> None:
-    st.header("Browse the catalog")
-    st.markdown(
-        """
-        <style>
-        .availability-badge {
-            display: inline-block;
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-        .availability-available {
-            color: #176b36;
-            background: #e7f5eb;
-        }
-        .availability-borrowed {
-            color: #8a4b08;
-            background: #fff2d8;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-    search_text = st.text_input(
-        "Search by title, author, ISBN, genre, or synopsis",
-        key="user_search",
-    )
-    availability_filter = st.selectbox(
-        "Availability",
-        ("All books", "Available", "Borrowed"),
-        key="user_availability_filter",
-    )
+    st.title("Find your next read")
+    st.caption("Explore the collection, or ask your AI librarian for a suggestion.")
+    search_column, filter_column = st.columns([3, 1], gap="large")
+    with search_column:
+        search_text = st.text_input(
+            "Search the collection",
+            placeholder="Title, author, ISBN, genre, or synopsis",
+            key="user_search",
+        )
+    with filter_column:
+        availability_filter = st.selectbox(
+            "Availability",
+            ("All books", "Available", "Borrowed"),
+            key="user_availability_filter",
+        )
     availability = {
         "All books": None,
         "Available": BookAvailability.AVAILABLE,
@@ -70,30 +53,41 @@ def render_user_view(sessions: SessionFactory, user_id: str) -> None:
         return
 
     if not books:
-        st.info("No books match your search.")
+        st.info("No books match those filters. Try another search.")
     else:
-        st.caption(f"{len(books)} book(s)")
-        for book in books:
-            with st.container(border=True):
-                title_column, status_column, action_column = st.columns([5, 2, 1])
-                with title_column:
-                    st.subheader(book.title)
-                    details = [book.author]
-                    if book.publication_year is not None:
-                        details.append(str(book.publication_year))
-                    if book.genre:
-                        details.append(book.genre)
-                    st.caption(" · ".join(details))
-                    if book.synopsis:
-                        st.write(book.synopsis)
-                    if book.isbn:
-                        st.caption(f"ISBN: {book.isbn}")
-                with status_column:
-                    _render_availability_badge(book.availability)
-                with action_column:
-                    _render_user_book_action(sessions, book, user_id)
+        st.caption(f"{len(books)} titles")
+        for index in range(0, len(books), 2):
+            columns = st.columns(2, gap="large")
+            for column, book in zip(columns, books[index : index + 2]):
+                with column:
+                    _render_book_card(sessions, book, user_id)
 
     _render_assistant_chat(sessions)
+
+
+def _render_book_card(
+    sessions: SessionFactory,
+    book: Book,
+    user_id: str,
+) -> None:
+    with st.container(border=True):
+        st.subheader(book.title)
+        st.caption(book.author)
+        _render_availability_badge(book.availability)
+
+        details = []
+        if book.publication_year is not None:
+            details.append(str(book.publication_year))
+        if book.genre:
+            details.append(book.genre)
+        if details:
+            st.caption(" · ".join(details))
+        if book.synopsis:
+            st.write(book.synopsis)
+        if book.isbn:
+            st.caption(f"ISBN {book.isbn}")
+
+        _render_user_book_action(sessions, book, user_id)
 
 
 def _render_availability_badge(availability: BookAvailability) -> None:
