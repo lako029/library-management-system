@@ -1,0 +1,5 @@
+app_title = "Library Management System"
+auto_create_schema = true
+agent_model = "openai:gpt-4o"
+synopsis_embedding_model = "text-embedding-3-small"
+synopsis_embedding_dimensions = 1536
