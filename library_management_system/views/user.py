@@ -134,8 +134,8 @@ def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
                 st.rerun()
         st.markdown(
             '<p class="librarian-intro">Tell me what you love to read or ask '
-            'me to help manage your borrowed books. Start with a genre, a '
-            'topic, or a book you already love.</p>',
+            "me to help manage your borrowed books. Start with a genre, a "
+            "topic, or a book you already love.</p>",
             unsafe_allow_html=True,
         )
 
@@ -167,9 +167,7 @@ def _render_assistant_chat(sessions: SessionFactory, user_id: str) -> None:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
-            if prompt := st.chat_input(
-                "Ask about books or recommendations"
-            ):
+            if prompt := st.chat_input("Ask about books or recommendations"):
                 history: list[BaseMessage] = [
                     (
                         HumanMessage(content=message["content"])

@@ -1,7 +1,20 @@
 import pytest
 
 from library_management_system.services.auth import (
-    DEFAULT_ROLES_CLAIM, AuthenticatedUser, authenticated_user_from_claims)
+    DEFAULT_ROLES_CLAIM, AuthenticatedUser, authenticated_user_from_claims,
+    local_development_admin)
+
+
+def test_local_development_user_is_admin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AUTH0_ADMIN_ROLE", raising=False)
+
+    user = local_development_admin()
+
+    assert user.user_id == "local-development-admin"
+    assert user.name == "Local Admin"
+    assert user.is_admin is True
 
 
 def test_admin_access_depends_on_verified_auth0_role(

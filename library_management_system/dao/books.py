@@ -97,10 +97,7 @@ class BookDAO:
             book.checked_out_by = None
         if synopsis_embedding is not None:
             book.synopsis_embedding = _validate_embedding(synopsis_embedding)
-        elif (
-            data.synopsis != previous_synopsis
-            or data.genre != previous_genre
-        ):
+        elif data.synopsis != previous_synopsis or data.genre != previous_genre:
             book.synopsis_embedding = None
         self._session.flush()
         return book

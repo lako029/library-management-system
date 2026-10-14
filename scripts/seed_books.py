@@ -5,10 +5,8 @@ from library_management_system.dao import (Book, BookAvailability, BookDAO,
                                            create_session_factory,
                                            session_scope)
 from library_management_system.data_models import BookCreate
-from library_management_system.services import (
-    book_embedding_text,
-    get_embeddings,
-)
+from library_management_system.services import (book_embedding_text,
+                                                get_embeddings)
 
 SEED_BOOKS = (
     {

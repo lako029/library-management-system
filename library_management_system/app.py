@@ -8,7 +8,7 @@ from library_management_system.dao import (create_database_engine,
                                            create_session_factory,
                                            initialize_database)
 from library_management_system.services.auth import (
-    AuthenticatedUser, authenticated_user_from_claims)
+    AuthenticatedUser, authenticated_user_from_claims, local_development_admin)
 from library_management_system.views import (render_admin_view, render_sign_in,
                                              render_user_view)
 from library_management_system.views.auth import clear_auth_session
@@ -33,41 +33,49 @@ def main() -> None:
     )
     _apply_app_styles()
 
-    try:
-        provider_settings = st.secrets.get("auth", {}).get("auth0", {})
-    except StreamlitSecretNotFoundError:
-        provider_settings = {}
-    client_id = provider_settings.get("client_id")
-    metadata_url = provider_settings.get("server_metadata_url")
-    if not isinstance(client_id, str) or not isinstance(metadata_url, str):
-        st.error(
-            "Auth0 is not configured. Add the [auth] and [auth.auth0] "
-            "sections to .streamlit/secrets.toml; see the README."
-        )
-        st.stop()
+    if settings.environment == "local":
+        user = local_development_admin()
+    else:
+        try:
+            provider_settings = st.secrets.get("auth", {}).get("auth0", {})
+        except StreamlitSecretNotFoundError:
+            st.error(
+                "Auth0 is not configured. Add the [auth] and [auth.auth0] "
+                "sections to Streamlit secrets; see the README."
+            )
+            st.stop()
+        client_id = provider_settings.get("client_id")
+        metadata_url = provider_settings.get("server_metadata_url")
+        if not isinstance(client_id, str) or not isinstance(metadata_url, str):
+            st.error(
+                "Auth0 is not configured. Add the [auth] and [auth.auth0] "
+                "sections to Streamlit secrets; see the README."
+            )
+            st.stop()
 
-    if not st.user.get("is_logged_in", False):
-        _render_app_header()
-        render_sign_in()
-        st.stop()
+        if not st.user.get("is_logged_in", False):
+            _render_app_header()
+            render_sign_in()
+            st.stop()
 
-    expected_issuer = metadata_url.removesuffix("/.well-known/openid-configuration")
-    if not expected_issuer.endswith("/"):
-        expected_issuer += "/"
+        expected_issuer = metadata_url.removesuffix("/.well-known/openid-configuration")
+        if not expected_issuer.endswith("/"):
+            expected_issuer += "/"
 
-    try:
-        user = authenticated_user_from_claims(
-            dict(st.user),
-            expected_issuer=expected_issuer,
-            expected_audience=client_id,
-        )
-    except ValueError as error:
-        clear_auth_session()
-        st.error(
-            f"Your session could not be validated: {error}. " "Please sign in again."
-        )
-        render_sign_in()
-        st.stop()
+        try:
+            user = authenticated_user_from_claims(
+                dict(st.user),
+                expected_issuer=expected_issuer,
+                expected_audience=client_id,
+            )
+        except ValueError as error:
+            clear_auth_session()
+            st.error(
+                f"Your session could not be validated: {error}. "
+                "Please sign in again."
+            )
+            render_sign_in()
+            st.stop()
 
     view = _render_app_header(user)
 

@@ -1,11 +1,9 @@
 from sqlalchemy import create_engine, select
 
-from library_management_system import reindex_embeddings
 from library_management_system.dao import Base, Book
-from library_management_system.services.embeddings import (
-    book_embedding_text,
-    embed_book_content,
-)
+from library_management_system.services.embeddings import (book_embedding_text,
+                                                           embed_book_content)
+from scripts import reindex_embeddings
 
 
 class FakeEmbedder:
@@ -37,9 +35,7 @@ def test_embed_book_content_uses_combined_text(monkeypatch) -> None:
     result = embed_book_content("Science fiction", "A Mars mission.")
 
     assert result == [0.1] * 1536
-    assert embedder.queries == [
-        "Genre: Science fiction\nSynopsis: A Mars mission."
-    ]
+    assert embedder.queries == ["Genre: Science fiction\nSynopsis: A Mars mission."]
 
 
 def test_reindex_updates_existing_vectors_with_genre_and_synopsis(
@@ -80,11 +76,11 @@ def test_reindex_updates_existing_vectors_with_genre_and_synopsis(
 
     embedder = FakeBatchEmbedder()
     monkeypatch.setattr(
-        "library_management_system.reindex_embeddings.create_database_engine",
+        "scripts.reindex_embeddings.create_database_engine",
         lambda: engine,
     )
     monkeypatch.setattr(
-        "library_management_system.reindex_embeddings.get_embeddings",
+        "scripts.reindex_embeddings.get_embeddings",
         lambda: embedder,
     )
 
@@ -93,7 +89,9 @@ def test_reindex_updates_existing_vectors_with_genre_and_synopsis(
     assert updated == 1
     assert embedder.texts == ["Genre: Science fiction\nSynopsis: A desert planet."]
     with engine.connect() as connection:
-        embeddings = connection.execute(
-            select(Book.synopsis_embedding).order_by(Book.title)
-        ).scalars().all()
+        embeddings = (
+            connection.execute(select(Book.synopsis_embedding).order_by(Book.title))
+            .scalars()
+            .all()
+        )
     assert embeddings == [[0.4] * 1536, None]

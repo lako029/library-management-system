@@ -4,13 +4,11 @@ from uuid import UUID
 from sqlalchemy import select, update
 
 from library_management_system.config import get_settings
-from library_management_system.dao import (
-    Book,
-    create_database_engine,
-    create_session_factory,
-    session_scope,
-)
-from library_management_system.services import book_embedding_text, get_embeddings
+from library_management_system.dao import (Book, create_database_engine,
+                                           create_session_factory,
+                                           session_scope)
+from library_management_system.services import (book_embedding_text,
+                                                get_embeddings)
 
 BATCH_SIZE = 100
 
@@ -40,14 +38,11 @@ def reindex_book_embeddings(batch_size: int = BATCH_SIZE) -> int:
 
             last_id = books[-1].id
             texts = [
-                book_embedding_text(genre, synopsis)
-                for _, genre, synopsis in books
+                book_embedding_text(genre, synopsis) for _, genre, synopsis in books
             ]
             embedding_texts = [text for text in texts if text is not None]
             vectors = (
-                embedder.embed_documents(embedding_texts)
-                if embedding_texts
-                else []
+                embedder.embed_documents(embedding_texts) if embedding_texts else []
             )
             if len(vectors) != sum(text is not None for text in texts):
                 raise RuntimeError(

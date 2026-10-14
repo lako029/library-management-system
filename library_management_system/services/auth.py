@@ -20,6 +20,16 @@ class AuthenticatedUser:
         return admin_role in self.roles
 
 
+def local_development_admin() -> AuthenticatedUser:
+    admin_role = os.getenv("AUTH0_ADMIN_ROLE", ADMIN_ROLE)
+    return AuthenticatedUser(
+        user_id="local-development-admin",
+        email="admin@localhost",
+        name="Local Admin",
+        roles=frozenset({admin_role}),
+    )
+
+
 def authenticated_user_from_claims(
     claims: Mapping[str, object],
     *,
