@@ -3,7 +3,14 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, String, Text, Uuid, func
+from sqlalchemy import (
+    DateTime,
+    Enum as SQLAlchemyEnum,
+    String,
+    Text,
+    Uuid,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -39,6 +46,7 @@ class Book(Base):
         default=BookAvailability.AVAILABLE,
         server_default=BookAvailability.AVAILABLE.value,
     )
+    checked_out_by: Mapped[str | None] = mapped_column(String(255))
     synopsis_embedding: Mapped[list[float] | None] = mapped_column(Vector())
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

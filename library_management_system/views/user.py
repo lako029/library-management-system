@@ -19,7 +19,7 @@ from library_management_system.dao import (
 SessionFactory = sessionmaker[Session]
 
 
-def render_user_view(sessions: SessionFactory) -> None:
+def render_user_view(sessions: SessionFactory, user_id: str) -> None:
     st.header("Browse the catalog")
     st.markdown(
         """
@@ -91,7 +91,7 @@ def render_user_view(sessions: SessionFactory) -> None:
                 with status_column:
                     _render_availability_badge(book.availability)
                 with action_column:
-                    _render_user_book_action(sessions, book)
+                    _render_user_book_action(sessions, book, user_id)
 
     _render_assistant_chat(sessions)
 
@@ -164,20 +164,27 @@ def _render_assistant_chat(sessions: SessionFactory) -> None:
                 )
 
 
-def _render_user_book_action(sessions: SessionFactory, book: Book) -> None:
+def _render_user_book_action(
+    sessions: SessionFactory,
+    book: Book,
+    user_id: str,
+) -> None:
     if book.availability == BookAvailability.AVAILABLE:
         label = "Check out"
-        action: Callable[[BookDAO, UUID], Book | None] = BookDAO.check_out
+        action: Callable[[BookDAO, UUID, str], Book | None] = BookDAO.check_out
         success_message = "Book checked out."
-    else:
+    elif book.checked_out_by == user_id:
         label = "Check in"
         action = BookDAO.check_in
         success_message = "Book checked in."
+    else:
+        st.caption("Only the borrower can check in this book.")
+        return
 
     if st.button(label, key=f"user_action_{book.id}", use_container_width=True):
         try:
             with session_scope(sessions) as session:
-                updated_book = action(BookDAO(session), book.id)
+                updated_book = action(BookDAO(session), book.id, user_id)
                 if updated_book is None:
                     st.warning("This book is no longer in the catalog.")
                     return

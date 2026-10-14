@@ -40,6 +40,21 @@ def test_create_adds_book_and_flushes_session() -> None:
     session.flush.assert_called_once()
 
 
+def test_create_rejects_borrowed_book_without_borrower() -> None:
+    session = MagicMock()
+    data = BookCreate(
+        title="Dune",
+        author="Frank Herbert",
+        availability=BookAvailability.BORROWED,
+    )
+
+    with pytest.raises(BookAvailabilityError, match="New books must be available"):
+        BookDAO(session).create(data)
+
+    session.add.assert_not_called()
+    session.flush.assert_not_called()
+
+
 def test_update_replaces_fields_and_clears_stale_embedding() -> None:
     session = MagicMock()
     book = Book(
@@ -49,7 +64,7 @@ def test_update_replaces_fields_and_clears_stale_embedding() -> None:
         synopsis="Original synopsis",
         synopsis_embedding=[0.1] * 1536,
     )
-    session.get.return_value = book
+    session.scalars.return_value.one_or_none.return_value = book
 
     result = BookDAO(session).update(book.id, _complete_update())
 
@@ -69,7 +84,7 @@ def test_update_keeps_embedding_when_synopsis_is_unchanged() -> None:
         synopsis="Updated synopsis",
         synopsis_embedding=embedding,
     )
-    session.get.return_value = book
+    session.scalars.return_value.one_or_none.return_value = book
 
     BookDAO(session).update(book.id, _complete_update())
 
@@ -78,7 +93,7 @@ def test_update_keeps_embedding_when_synopsis_is_unchanged() -> None:
 
 def test_update_returns_none_for_unknown_book() -> None:
     session = MagicMock()
-    session.get.return_value = None
+    session.scalars.return_value.one_or_none.return_value = None
 
     assert BookDAO(session).update(uuid4(), _complete_update()) is None
     session.flush.assert_not_called()
@@ -92,7 +107,7 @@ def test_delete_returns_false_for_unknown_book() -> None:
     session.delete.assert_not_called()
 
 
-def test_check_out_and_check_in_lock_and_change_availability() -> None:
+def test_check_out_and_check_in_track_owner_and_change_availability() -> None:
     session = MagicMock()
     book = Book(
         id=uuid4(),
@@ -103,12 +118,33 @@ def test_check_out_and_check_in_lock_and_change_availability() -> None:
     session.scalars.return_value.one_or_none.return_value = book
     dao = BookDAO(session)
 
-    assert dao.check_out(book.id) is book
+    assert dao.check_out(book.id, "auth0|borrower-1") is book
     assert book.availability is BookAvailability.BORROWED
-    assert dao.check_in(book.id) is book
+    assert book.checked_out_by == "auth0|borrower-1"
+    assert dao.check_in(book.id, "auth0|borrower-1") is book
     assert book.availability is BookAvailability.AVAILABLE
+    assert book.checked_out_by is None
     assert session.scalars.call_count == 2
     assert session.flush.call_count == 2
+
+
+def test_check_in_rejects_a_different_borrower() -> None:
+    session = MagicMock()
+    book = Book(
+        id=uuid4(),
+        title="Dune",
+        author="Frank Herbert",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|borrower-1",
+    )
+    session.scalars.return_value.one_or_none.return_value = book
+
+    with pytest.raises(BookAvailabilityError, match="Only the user"):
+        BookDAO(session).check_in(book.id, "auth0|borrower-2")
+
+    assert book.availability is BookAvailability.BORROWED
+    assert book.checked_out_by == "auth0|borrower-1"
+    session.flush.assert_not_called()
 
 
 def test_check_out_rejects_already_borrowed_book() -> None:
@@ -122,7 +158,44 @@ def test_check_out_rejects_already_borrowed_book() -> None:
     session.scalars.return_value.one_or_none.return_value = book
 
     with pytest.raises(BookAvailabilityError):
-        BookDAO(session).check_out(book.id)
+        BookDAO(session).check_out(book.id, "auth0|borrower-1")
+
+
+def test_admin_availability_update_clears_borrower_when_returned() -> None:
+    session = MagicMock()
+    book = Book(
+        id=uuid4(),
+        title="Dune",
+        author="Frank Herbert",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|borrower-1",
+    )
+    session.scalars.return_value.one_or_none.return_value = book
+
+    updated = BookDAO(session).update(book.id, _complete_update())
+
+    assert updated is book
+    assert book.availability is BookAvailability.AVAILABLE
+    assert book.checked_out_by is None
+
+
+def test_admin_cannot_mark_available_book_borrowed_without_owner() -> None:
+    session = MagicMock()
+    book = Book(
+        id=uuid4(),
+        title="Dune",
+        author="Frank Herbert",
+        availability=BookAvailability.AVAILABLE,
+    )
+    session.scalars.return_value.one_or_none.return_value = book
+    update = _complete_update()
+    update.availability = BookAvailability.BORROWED
+
+    with pytest.raises(BookAvailabilityError, match="Use check_out"):
+        BookDAO(session).update(book.id, update)
+
+    assert book.availability is BookAvailability.AVAILABLE
+    session.flush.assert_not_called()
 
 
 def test_recommendation_query_orders_by_euclidean_distance() -> None:

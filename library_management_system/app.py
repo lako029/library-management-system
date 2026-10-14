@@ -94,7 +94,7 @@ def main() -> None:
         view = st.sidebar.radio("View", ("User", "Admin"))
 
     if view == "User":
-        render_user_view(sessions)
+        render_user_view(sessions, user.user_id)
     else:
         render_admin_view(sessions)
 

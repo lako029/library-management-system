@@ -58,6 +58,7 @@ def test_book_read_loads_orm_attributes_without_embedding() -> None:
         publication_year=1965,
         language="English",
         availability=BookAvailability.AVAILABLE,
+        checked_out_by=None,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         synopsis_embedding=[0.1, 0.2],
@@ -66,4 +67,5 @@ def test_book_read_loads_orm_attributes_without_embedding() -> None:
     result = BookRead.model_validate(book)
 
     assert result.id == book.id
+    assert result.checked_out_by is None
     assert "synopsis_embedding" not in result.model_dump()

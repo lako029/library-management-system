@@ -4,9 +4,10 @@
 
 The initial SQLAlchemy model is `library_management_system.dao.Book`. It stores a book title and
 author, optional catalog metadata and synopsis, a single current availability
-state, and an optional pgvector synopsis embedding for future recommendations.
-The current model tracks availability only; it does not yet record borrower
-identity or checkout history.
+state, the Auth0 user ID of the current borrower (when checked out), and an
+optional pgvector synopsis embedding for future recommendations. Borrower
+identity is cleared when the book is checked in; checkout history is not
+retained.
 
 The embedding column is not assigned a fixed vector dimension yet. Select the
 embedding model before adding database migrations or vector indexes so the
@@ -43,10 +44,24 @@ with session_scope(sessions) as session:
 For local development, call `initialize_database(engine)` once to enable
 pgvector and create missing tables. This is a bootstrap helper, not a schema
 migration strategy. `BookDAO` provides create/read/update/delete, catalog
-search, check-in/check-out transitions, and synopsis-embedding recommendations
-ranked by Euclidean distance. DAO methods flush changes; `session_scope`
-commits successful transactions and rolls back failures. Availability
-transitions acquire a row lock until the transaction completes.
+search, borrower-restricted check-in/check-out transitions, and
+synopsis-embedding recommendations ranked by Euclidean distance. DAO methods
+flush changes; `session_scope` commits successful transactions and rolls back
+failures. Availability transitions acquire a row lock until the transaction
+completes.
+
+For an existing PostgreSQL database, apply this schema change before deploying
+the borrower-aware app:
+
+```sql
+ALTER TABLE books ADD COLUMN IF NOT EXISTS checked_out_by VARCHAR(255);
+```
+
+Existing borrowed rows will have no recorded borrower after this migration, so
+no user can check them in. An admin can set their availability to **Available**
+in the catalog editor to clear that legacy state. New check-outs record the
+authenticated user's Auth0 subject ID, and only that user can check the book
+back in.
 
 ## Library assistant
 

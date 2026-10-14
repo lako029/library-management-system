@@ -26,8 +26,13 @@ class BookDAO:
         *,
         synopsis_embedding: Sequence[float] | None = None,
     ) -> Book:
+        if data.availability is not BookAvailability.AVAILABLE:
+            raise BookAvailabilityError(
+                "New books must be available; use check_out to borrow a book."
+            )
         book = Book(
             **data.model_dump(),
+            checked_out_by=None,
             synopsis_embedding=(
                 _validate_embedding(synopsis_embedding)
                 if synopsis_embedding is not None
@@ -72,12 +77,22 @@ class BookDAO:
         *,
         synopsis_embedding: Sequence[float] | None = None,
     ) -> Book | None:
-        book = self.get(book_id)
+        statement = select(Book).where(Book.id == book_id).with_for_update()
+        book = self._session.scalars(statement).one_or_none()
         if book is None:
             return None
         previous_synopsis = book.synopsis
+        if (
+            data.availability is BookAvailability.BORROWED
+            and book.availability is BookAvailability.AVAILABLE
+        ):
+            raise BookAvailabilityError(
+                "Use check_out to borrow a book so its borrower is recorded."
+            )
         for field, value in data.model_dump().items():
             setattr(book, field, value)
+        if data.availability is BookAvailability.AVAILABLE:
+            book.checked_out_by = None
         if synopsis_embedding is not None:
             book.synopsis_embedding = _validate_embedding(synopsis_embedding)
         elif data.synopsis != previous_synopsis:
@@ -93,18 +108,22 @@ class BookDAO:
         self._session.flush()
         return True
 
-    def check_out(self, book_id: UUID) -> Book | None:
+    def check_out(self, book_id: UUID, borrower_id: str) -> Book | None:
+        _validate_borrower_id(borrower_id)
         return self._set_availability(
             book_id,
             expected=BookAvailability.AVAILABLE,
             target=BookAvailability.BORROWED,
+            borrower_id=borrower_id,
         )
 
-    def check_in(self, book_id: UUID) -> Book | None:
+    def check_in(self, book_id: UUID, borrower_id: str) -> Book | None:
+        _validate_borrower_id(borrower_id)
         return self._set_availability(
             book_id,
             expected=BookAvailability.BORROWED,
             target=BookAvailability.AVAILABLE,
+            borrower_id=borrower_id,
         )
 
     def recommend_by_embedding(
@@ -135,6 +154,7 @@ class BookDAO:
         *,
         expected: BookAvailability,
         target: BookAvailability,
+        borrower_id: str,
     ) -> Book | None:
         statement = (
             select(Book)
@@ -149,6 +169,14 @@ class BookDAO:
                 f"Cannot change availability from {book.availability.value} "
                 f"to {target.value}."
             )
+        if target is BookAvailability.AVAILABLE:
+            if book.checked_out_by != borrower_id:
+                raise BookAvailabilityError(
+                    "Only the user who checked out this book can check it in."
+                )
+            book.checked_out_by = None
+        else:
+            book.checked_out_by = borrower_id
         book.availability = target
         self._session.flush()
         return book
@@ -157,6 +185,13 @@ class BookDAO:
 def _validate_limit(limit: int) -> None:
     if not 1 <= limit <= MAX_QUERY_LIMIT:
         raise ValueError(f"limit must be between 1 and {MAX_QUERY_LIMIT}.")
+
+
+def _validate_borrower_id(borrower_id: str) -> None:
+    if not borrower_id or not borrower_id.strip():
+        raise ValueError("borrower_id must not be blank.")
+    if len(borrower_id) > 255:
+        raise ValueError("borrower_id must be at most 255 characters.")
 
 
 def _validate_embedding(embedding: Sequence[float]) -> list[float]:
