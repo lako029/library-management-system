@@ -123,19 +123,22 @@ def create_library_tools(
             title: str,
             author: str = "",
             publication_year: int | None = None,
+            rating: int | None = None,
         ) -> str:
             """Check in a book currently borrowed by the signed-in patron.
 
             Use the exact catalog title. Provide the author when needed to
             distinguish books with the same title, and the year when needed
-            to distinguish editions. Only the patron who checked out a book
-            can check it in.
+            to distinguish editions. Ask for an optional 1-to-5-star rating
+            before calling if the patron has not provided one. Only the patron
+            who checked out the book can check it in.
             """
             return _change_book_status(
                 sessions,
                 title=title,
                 author=author,
                 publication_year=publication_year,
+                rating=rating,
                 borrower_id=borrower_id,
                 check_out=False,
             )
@@ -150,6 +153,7 @@ def _change_book_status(
     title: str,
     author: str,
     publication_year: int | None,
+    rating: int | None = None,
     borrower_id: str,
     check_out: bool,
 ) -> str:
@@ -210,7 +214,7 @@ def _change_book_status(
             updated = (
                 dao.check_out(book.id, borrower_id)
                 if check_out
-                else dao.check_in(book.id, borrower_id)
+                else dao.check_in(book.id, borrower_id, rating=rating)
             )
             if updated is None:
                 return json.dumps(
@@ -224,20 +228,26 @@ def _change_book_status(
                 "author": updated.author,
                 "availability": updated.availability.value,
             }
-    except BookAvailabilityError as error:
+    except (BookAvailabilityError, ValueError) as error:
         return json.dumps({"success": False, "message": str(error)})
 
     action = "out" if check_out else "in"
-    return json.dumps(
-        {
-            "success": True,
-            "message": (
-                f"Successfully checked {action} “{result_book['title']}” "
-                f"by {result_book['author']}."
-            ),
-            "book": result_book,
-        }
-    )
+    result: dict[str, object] = {
+        "success": True,
+        "message": (
+            f"Successfully checked {action} “{result_book['title']}” "
+            f"by {result_book['author']}."
+            + (
+                f" Submitted a {rating}-star rating."
+                if not check_out and rating is not None
+                else ""
+            )
+        ),
+        "book": result_book,
+    }
+    if not check_out and rating is not None:
+        result["rating"] = rating
+    return json.dumps(result)
 
 
 def _format_books(books: Sequence[Book]) -> str:
@@ -253,6 +263,8 @@ def _format_books(books: Sequence[Book]) -> str:
                 "language": book.language,
                 "synopsis": book.synopsis,
                 "availability": book.availability.value,
+                "average_rating": book.average_rating,
+                "rating_count": book.rating_count,
             }
         )
     return json.dumps({"results": results})

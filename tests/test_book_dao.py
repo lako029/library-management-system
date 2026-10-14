@@ -2,10 +2,13 @@ from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import create_engine
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.orm import sessionmaker
 
-from library_management_system.dao import (Book, BookAvailability,
-                                           BookAvailabilityError, BookDAO)
+from library_management_system.dao import (Base, Book, BookAvailability,
+                                           BookAvailabilityError, BookDAO,
+                                           session_scope)
 from library_management_system.data_models import BookCreate, BookUpdate
 
 
@@ -122,6 +125,7 @@ def test_check_out_and_check_in_track_owner_and_change_availability() -> None:
     assert book.checked_out_by is None
     assert session.scalars.call_count == 2
     assert session.flush.call_count == 2
+    session.add.assert_not_called()
 
 
 def test_check_in_rejects_a_different_borrower() -> None:
@@ -136,11 +140,70 @@ def test_check_in_rejects_a_different_borrower() -> None:
     session.scalars.return_value.one_or_none.return_value = book
 
     with pytest.raises(BookAvailabilityError, match="Only the user"):
-        BookDAO(session).check_in(book.id, "auth0|borrower-2")
+        BookDAO(session).check_in(book.id, "auth0|borrower-2", rating=4)
 
     assert book.availability is BookAvailability.BORROWED
     assert book.checked_out_by == "auth0|borrower-1"
     session.flush.assert_not_called()
+    session.add.assert_not_called()
+
+
+def test_check_in_records_optional_rating_for_borrower() -> None:
+    session = MagicMock()
+    book = Book(
+        id=uuid4(),
+        title="Dune",
+        author="Frank Herbert",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|borrower-1",
+    )
+    session.scalars.return_value.one_or_none.return_value = book
+
+    updated = BookDAO(session).check_in(
+        book.id,
+        "auth0|borrower-1",
+        rating=5,
+    )
+
+    assert updated is book
+    review = session.add.call_args.args[0]
+    assert review.book_id == book.id
+    assert review.borrower_id == "auth0|borrower-1"
+    assert review.rating == 5
+    assert book.availability is BookAvailability.AVAILABLE
+    assert book.checked_out_by is None
+
+
+def test_check_in_rating_persists_and_contributes_to_book_average() -> None:
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    sessions = sessionmaker(bind=engine, expire_on_commit=False)
+
+    with session_scope(sessions) as session:
+        book = Book(
+            title="Dune",
+            author="Frank Herbert",
+            availability=BookAvailability.BORROWED,
+            checked_out_by="auth0|borrower-1",
+        )
+        session.add(book)
+        session.flush()
+        book_id = book.id
+
+    with session_scope(sessions) as session:
+        BookDAO(session).check_in(book_id, "auth0|borrower-1", rating=5)
+
+    with session_scope(sessions) as session:
+        rated_book = BookDAO(session).get(book_id)
+        assert rated_book is not None
+        assert rated_book.average_rating == 5
+        assert rated_book.rating_count == 1
+
+
+@pytest.mark.parametrize("rating", [0, 6, -1, True, 3.5])
+def test_check_in_rejects_invalid_rating(rating: int | float | bool) -> None:
+    with pytest.raises(ValueError, match="rating must be between 1 and 5"):
+        BookDAO(MagicMock()).check_in(uuid4(), "auth0|borrower-1", rating=rating)
 
 
 def test_check_out_rejects_already_borrowed_book() -> None:

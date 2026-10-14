@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from library_management_system.dao import BookAvailability
+from library_management_system.dao import Book, BookAvailability, BookReview
 from library_management_system.data_models import (BookCreate, BookRead,
                                                    BookUpdate)
 
@@ -60,6 +60,8 @@ def test_book_read_loads_orm_attributes_without_embedding() -> None:
         language="English",
         availability=BookAvailability.AVAILABLE,
         checked_out_by=None,
+        average_rating=4.5,
+        rating_count=2,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
         synopsis_embedding=[0.1, 0.2],
@@ -69,4 +71,19 @@ def test_book_read_loads_orm_attributes_without_embedding() -> None:
 
     assert result.id == book.id
     assert result.checked_out_by is None
+    assert result.average_rating == 4.5
+    assert result.rating_count == 2
     assert "synopsis_embedding" not in result.model_dump()
+
+
+def test_book_rating_summary_is_average_of_saved_reviews() -> None:
+    book = Book(title="Dune", author="Frank Herbert")
+    book.reviews.extend(
+        [
+            BookReview(borrower_id="user-1", rating=4),
+            BookReview(borrower_id="user-2", rating=5),
+        ]
+    )
+
+    assert book.rating_count == 2
+    assert book.average_rating == 4.5

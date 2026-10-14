@@ -1,6 +1,3 @@
-from collections.abc import Callable
-from uuid import UUID
-
 import streamlit as st
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from openai import OpenAIError
@@ -70,6 +67,10 @@ def _render_book_card(
         st.subheader(book.title)
         st.caption(book.author)
         _render_availability_badge(book.availability)
+        if book.average_rating is not None:
+            st.caption(
+                f"★ {book.average_rating:.1f} · " f"{book.rating_count} rating(s)"
+            )
 
         details = []
         if book.publication_year is not None:
@@ -164,12 +165,23 @@ def _render_user_book_action(
 ) -> None:
     if book.availability == BookAvailability.AVAILABLE:
         label = "Check out"
-        action: Callable[[BookDAO, UUID, str], Book | None] = BookDAO.check_out
         success_message = "Book checked out."
+        rating = None
+        check_in = False
     elif book.checked_out_by == user_id:
+        st.caption("Rate this book before returning it (optional).")
+        rating_index = st.feedback(
+            "stars",
+            key=f"user_rating_{book.id}",
+        )
+        rating = rating_index + 1 if rating_index is not None else None
         label = "Check in"
-        action = BookDAO.check_in
-        success_message = "Book checked in."
+        check_in = True
+        success_message = (
+            f"Book checked in with your {rating}-star rating."
+            if rating is not None
+            else "Book checked in."
+        )
     else:
         st.caption("Only the borrower can check in this book.")
         return
@@ -177,7 +189,12 @@ def _render_user_book_action(
     if st.button(label, key=f"user_action_{book.id}", use_container_width=True):
         try:
             with session_scope(sessions) as session:
-                updated_book = action(BookDAO(session), book.id, user_id)
+                dao = BookDAO(session)
+                updated_book = (
+                    dao.check_in(book.id, user_id, rating=rating)
+                    if check_in
+                    else dao.check_out(book.id, user_id)
+                )
                 if updated_book is None:
                     st.warning("This book is no longer in the catalog.")
                     return

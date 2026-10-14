@@ -6,7 +6,8 @@ from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from library_management_system.config import get_settings
-from library_management_system.dao.models import Book, BookAvailability
+from library_management_system.dao.models import (Book, BookAvailability,
+                                                  BookReview)
 from library_management_system.data_models import BookCreate, BookUpdate
 
 MAX_QUERY_LIMIT = 100
@@ -117,13 +118,20 @@ class BookDAO:
             borrower_id=borrower_id,
         )
 
-    def check_in(self, book_id: UUID, borrower_id: str) -> Book | None:
+    def check_in(
+        self,
+        book_id: UUID,
+        borrower_id: str,
+        rating: int | None = None,
+    ) -> Book | None:
         _validate_borrower_id(borrower_id)
+        _validate_rating(rating)
         return self._set_availability(
             book_id,
             expected=BookAvailability.BORROWED,
             target=BookAvailability.AVAILABLE,
             borrower_id=borrower_id,
+            rating=rating,
         )
 
     def recommend_by_embedding(
@@ -153,6 +161,7 @@ class BookDAO:
         expected: BookAvailability,
         target: BookAvailability,
         borrower_id: str,
+        rating: int | None = None,
     ) -> Book | None:
         statement = select(Book).where(Book.id == book_id).with_for_update()
         book = self._session.scalars(statement).one_or_none()
@@ -167,6 +176,14 @@ class BookDAO:
             if book.checked_out_by != borrower_id:
                 raise BookAvailabilityError(
                     "Only the user who checked out this book can check it in."
+                )
+            if rating is not None:
+                self._session.add(
+                    BookReview(
+                        book_id=book.id,
+                        borrower_id=borrower_id,
+                        rating=rating,
+                    )
                 )
             book.checked_out_by = None
         else:
@@ -186,6 +203,13 @@ def _validate_borrower_id(borrower_id: str) -> None:
         raise ValueError("borrower_id must not be blank.")
     if len(borrower_id) > 255:
         raise ValueError("borrower_id must be at most 255 characters.")
+
+
+def _validate_rating(rating: int | None) -> None:
+    if rating is not None and (
+        not isinstance(rating, int) or isinstance(rating, bool) or not 1 <= rating <= 5
+    ):
+        raise ValueError("rating must be between 1 and 5.")
 
 
 def _validate_embedding(embedding: Sequence[float]) -> list[float]:

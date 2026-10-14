@@ -50,6 +50,8 @@ def test_search_tool_formats_catalog_results(monkeypatch) -> None:
 
     assert result["results"][0]["title"] == "The Martian"
     assert result["results"][0]["availability"] == "available"
+    assert result["results"][0]["average_rating"] is None
+    assert result["results"][0]["rating_count"] == 0
 
 
 def test_recommendation_tool_uses_embedder_and_default_limit(monkeypatch) -> None:
@@ -182,7 +184,7 @@ def test_check_in_tool_reports_wrong_borrower_without_claiming_success(
         lambda _self, query, *, limit: [book],
     )
 
-    def check_in(_self, book_id, borrower_id):
+    def check_in(_self, book_id, borrower_id, *, rating=None):
         raise BookAvailabilityError(
             "Only the user who checked out this book can check it in."
         )
@@ -214,9 +216,10 @@ def test_check_in_tool_checks_in_book_for_its_borrower(monkeypatch) -> None:
         lambda _self, query, *, limit: [book],
     )
 
-    def check_in(_self, book_id, borrower_id):
+    def check_in(_self, book_id, borrower_id, *, rating=None):
         assert book_id == book.id
         assert borrower_id == "auth0|patron"
+        assert rating is None
         book.availability = BookAvailability.AVAILABLE
         book.checked_out_by = None
         return book
@@ -233,6 +236,41 @@ def test_check_in_tool_checks_in_book_for_its_borrower(monkeypatch) -> None:
 
     assert result["success"] is True
     assert result["book"]["availability"] == "available"
+
+
+def test_check_in_tool_persists_the_user_rating(monkeypatch) -> None:
+    book = Book(
+        id=uuid4(),
+        title="The Martian",
+        author="Andy Weir",
+        availability=BookAvailability.BORROWED,
+        checked_out_by="auth0|patron",
+    )
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.search",
+        lambda _self, query, *, limit: [book],
+    )
+
+    def check_in(_self, book_id, borrower_id, *, rating=None):
+        assert book_id == book.id
+        assert borrower_id == "auth0|patron"
+        assert rating == 5
+        book.availability = BookAvailability.AVAILABLE
+        book.checked_out_by = None
+        return book
+
+    monkeypatch.setattr(
+        "library_management_system.agent.tools.BookDAO.check_in",
+        check_in,
+    )
+    sessions = sessionmaker(bind=create_engine("sqlite://"))
+    tools = create_library_tools(sessions, borrower_id="auth0|patron")
+    check_in_tool = next(tool for tool in tools if tool.name == "check_in_book")
+
+    result = json.loads(check_in_tool.invoke({"title": "The Martian", "rating": 5}))
+
+    assert result["success"] is True
+    assert "5-star rating" in result["message"]
 
 
 def test_action_tool_requires_a_unique_exact_title_match(monkeypatch) -> None:

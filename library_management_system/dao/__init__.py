@@ -3,7 +3,8 @@ from library_management_system.dao.database import (create_database_engine,
                                                     create_session_factory,
                                                     initialize_database,
                                                     session_scope)
-from library_management_system.dao.models import Base, Book, BookAvailability
+from library_management_system.dao.models import (Base, Book, BookAvailability,
+                                                  BookReview)
 
 __all__ = [
     "Base",
@@ -11,6 +12,7 @@ __all__ = [
     "BookAvailability",
     "BookAvailabilityError",
     "BookDAO",
+    "BookReview",
     "create_database_engine",
     "create_session_factory",
     "initialize_database",

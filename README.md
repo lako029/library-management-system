@@ -61,7 +61,22 @@ Existing borrowed rows will have no recorded borrower after this migration, so
 no user can check them in. An admin can set their availability to **Available**
 in the catalog editor to clear that legacy state. New check-outs record the
 authenticated user's Auth0 subject ID, and only that user can check the book
-back in.
+back in. Check-in can also save an optional 1-to-5-star rating; individual
+ratings are retained as reviews and the catalog shows each book's average and
+rating count.
+
+For an existing production database, create the review table before deploying:
+
+```sql
+CREATE TABLE IF NOT EXISTS book_reviews (
+    id UUID PRIMARY KEY,
+    book_id UUID NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    borrower_id VARCHAR(255) NOT NULL,
+    rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_book_reviews_book_id ON book_reviews(book_id);
+```
 
 ## Library assistant
 
@@ -75,6 +90,8 @@ remains read-only. The action tools require an exact title match, allow author
 or publication year to disambiguate books, and use the same borrower-ownership
 checks as the catalog buttons. The assistant is instructed to perform an
 action only when the patron explicitly asks to borrow or return a book.
+When checking in, the assistant asks for an optional star rating and saves it
+with the review when provided.
 `run_agent(user_input)` runs a single request.
 
 The User view includes an “Ask the librarian” chat with per-session

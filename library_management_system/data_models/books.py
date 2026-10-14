@@ -45,5 +45,7 @@ class BookRead(BookBase):
 
     id: UUID
     checked_out_by: str | None = None
+    average_rating: float | None
+    rating_count: int
     created_at: datetime
     updated_at: datetime
